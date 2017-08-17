@@ -9,29 +9,23 @@ import torch
 from torch.autograd import Variable
 import numpy as np
 import time
-from mpnn import MPNN
 
-def evaluate(model, examples, loss_fn):
-    eval_loss, eval_acc = 0., 0.
+def evaluate(model, dataset, loss_fn, monitors):
+    eval_stats = {name: 0.0 for name in monitors.keys()}
+
     t0 = time.time()
-    for i, G in enumerate(examples):
+    for i, G in enumerate(dataset):
         # reset hidden states
-        for u in G.nodes():
-            G.node[u]['hidden'] = Variable(torch.zeros(1, model.state_dim))
-            G.node[u]['message'] = Variable(torch.zeros(1, model.message_dim))
+        G = model.reset_hidden_states(G)
 
         # forward model
         readout = model(G)
 
-        # get loss
-        loss = loss_fn(readout, G.graph['readout'])
-
         # stats
-        hard_prediction = readout.data.numpy()[0,0] > 0.5
-        ground_truth = G.graph['readout'].data.numpy()[0,0]
-        eval_acc += (hard_prediction == ground_truth)
-
-        eval_loss += loss.data.numpy()[0]
+        stats = {name: monitor(G, readout) for name, monitor in monitors.items()}
+        eval_stats = {name: (eval_stats[name] + stats[name]) for name in monitors.keys()}
 
     t = time.time() - t0
-    return {"loss": eval_loss / len(examples), "acc":eval_acc/len(examples), "t": t}
+    eval_stats = {name: stat / len(dataset) for name, stat in eval_stats.items()}
+    eval_stats["time"] = t
+    return eval_stats
