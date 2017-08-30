@@ -17,36 +17,31 @@ Target = namedtuple(
 
 
 def wrap_vertices(G, dtype='float'):
-    if dtype=='float':
-        for u in G.nodes():
-            G.node[u]['data'] = Variable(torch.from_numpy(G.node[u]['data'])).float()
-    elif dtype=='long':
-        for u in G.nodes():
-            G.node[u]['data'] = Variable(torch.from_numpy(G.node[u]['data'])).long()
-    else:
-        raise ValueError("Unsupported data type")
+    for u in G.nodes():
+        G.node[u]['data'] = wrap_tensor(G.node[u]['data'], dtype)
+    return None
 
 def wrap_edges(G, dtype='float'):
-    if dtype=='float':
-        for u, v in G.edges():
-            G.edge[u][v]['data'] = Variable(torch.from_numpy(G.edge[u][v]['data'])).float()
-    elif dtype=='long':
-        for u, v in G.edges():
-            G.edge[u][v]['data'] = Variable(torch.from_numpy(G.edge[u][v]['data'])).long()
-    else:
-        raise ValueError("Unsupported data type")
+    for u, v in G.edges():
+        G.edge[u][v]['data'] = wrap_tensor(G.edge[u][v]['data'], dtype)
+    return None
 
-def wrap_graph(G, targets, dtype='float'):
-    #import ipdb; ipdb.set_trace()
-    if dtype=='float':
-        for target in targets:
-            G.graph[target.name] = Variable(torch.from_numpy(G.graph[target.name])).float()
-    elif dtype=='long':
-        for target in targets:
-            G.graph[target.name] = Variable(torch.from_numpy(G.graph[target.name])).long()
-    else:
-        raise ValueError("Unsupported data type")
+def wrap_graph_targets(G, targets, dtype='float'):
+    for t in targets:
+        wrap_one_graph_state(G, t.name, dtype)
+    return None
 
+def wrap_one_graph_state(G, name, dtype='float'):
+    G.graph[name] = wrap_tensor(G.graph[name], dtype)
+    return None
+
+def wrap_tensor(tensor, dtype):
+    var = Variable(torch.from_numpy(tensor)).float()
+    if dtype=='long':
+        var = var.long()
+    if torch.cuda.is_available():
+        var.cuda()
+    return var
 
 class GraphDataset(Dataset):
     def __init__(
@@ -96,7 +91,7 @@ class GraphDataset(Dataset):
                 wrap_edges(G)
             if self.has_graph_data():
                 dtype = 'float' if self.problem_type == 'reg' else 'long'
-                wrap_graph(G, self.graph_targets, dtype)
+                wrap_graph_targets(G, self.graph_targets, dtype)
             return wrapped_dataset
 
 class FixedOrderGraphDataset(GraphDataset):
@@ -107,7 +102,7 @@ class FixedOrderGraphDataset(GraphDataset):
     def preprocess(self):
         wrapped_dataset = super().preprocess()
         for i, G in enumerate(wrapped_dataset):
-            G.graph['flat_graph_state'] = Variable(torch.from_numpy(G.graph['flat_graph_state'])).float()
+            wrap_one_graph_state(G, 'flat_graph_state')
 
 class BatchedGraphDataset(GraphDataset):
     def __init__(self, graph_dataset, batch_size):
@@ -150,7 +145,7 @@ class BatchedGraphDataset(GraphDataset):
                     wrap_edges(G)
                 if self.has_graph_data():
                     dtype = 'float' if self.problem_type == 'reg' else 'long'
-                    wrap_graph(G, self.graph_targets, dtype)
+                    wrap_graph_targets(G, self.graph_targets, dtype)
         return wrapped_dataset
 
 class BatchedFixedOrderGraphDataset(BatchedGraphDataset):
@@ -200,7 +195,7 @@ class BatchedFixedOrderGraphDataset(BatchedGraphDataset):
                 for target in self.graph_targets:
                     self.batches[on_batch].graph[target.name][batch_idx] = G.graph[target.name]
 
-            
+
             self.batches[on_batch].graph['flat_graph_state'][batch_idx] = G.graph['flat_graph_state']
             if batch_idx + 1 == batch_size:
                 on_batch += 1
@@ -217,7 +212,7 @@ class BatchedFixedOrderGraphDataset(BatchedGraphDataset):
                 wrap_edges(G)
             if self.has_graph_data():
                 dtype = 'float' if self.problem_type == 'reg' else 'long'
-                wrap_graph(G, self.graph_targets, dtype)
-            G.graph['flat_graph_state'] = Variable(torch.from_numpy(G.graph['flat_graph_state'])).float()
+                wrap_graph_targets(G, self.graph_targets, dtype)
+            wrap_one_graph_state(G, 'flat_graph_state')
 
         return wrapped_dataset

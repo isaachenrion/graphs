@@ -50,14 +50,14 @@ MODELS = [
 args.model = MODELS[args.model]
 if args.model == 'vcn':
     args.readout = 'selected_vertices'
-    #args.message = 'fully_connected'
-    #args.vertex_update = 'gru'
-    #args.embedding = 'constant'
+    args.message = 'fully_connected'
+    args.vertex_update = 'gru'
+    args.embedding = 'constant'
 elif args.model == 'mpnn':
     args.readout = 'fully_connected'
-    #args.message = 'fully_connected'
-    #args.vertex_update = 'gru'
-    #args.embedding = 'constant'
+    args.message = 'fully_connected'
+    args.vertex_update = 'gru'
+    args.embedding = 'constant'
 elif args.model == 'flat':
     args.readout = None
     args.message = None

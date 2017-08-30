@@ -38,7 +38,11 @@ class BaseMPNN(nn.Module):
         except KeyError:
             batch_size = 1
         for u in G.nodes():
-            G.node[u]['hidden'] = Variable(torch.zeros(batch_size, self.config.message.config.hidden_dim))
+            h = Variable(torch.zeros(batch_size, self.config.message.config.hidden_dim))
+            if torch.cuda.is_available():
+                h.cuda()
+            G.node[u]['hidden'] = h
+
         return None
 
 class VertexOnlyMPNN(BaseMPNN):
