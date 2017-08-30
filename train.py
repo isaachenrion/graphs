@@ -28,34 +28,26 @@ EXP_DIR = "experiments"
 def train(args):
     global DEBUG
     DEBUG = args.debug
+
     # get timestamp for model id
     dt = datetime.datetime.now()
     timestamp = '{}-{}___{:02d}-{:02d}-{:02d}'.format(dt.strftime("%b"), dt.day, dt.hour, dt.minute, dt.second)
     model_dir = os.path.join(EXP_DIR, timestamp)
     os.makedirs(model_dir)
 
-    if args.verbosity == 0:
-        def _print(x):
-            pass
-    elif args.verbosity == 1:
-        def _print(x):
-            with open(os.path.join(model_dir, 'log.txt'), 'a') as f:
-                f.write(str(x))
-    elif args.verbosity == 2:
-        def _print(x):
-            with open(os.path.join(model_dir, 'log.txt'), 'a') as f:
-                f.write(str(x))
-            print(x)
+    _print = get_print_function(model_dir, args.verbosity)
 
+    # set device (if using CUDA)
+    if torch.cuda.is_available():
+        torch.cuda.device(args.gpu)
+
+    # write the args to outfile
     for k, v in vars(args).items(): _print('{} : {}\n'.format(k, v))
 
     # load data
     training_set, validation_set = load_data(args)
-
-    out_str = 'Loaded data: {} training examples, {} validation examples\n'.format(
-        len(training_set.graphs), len(validation_set.graphs)
-    )
-    _print(out_str)
+    _print('Loaded data: {} training examples, {} validation examples\n'.format(
+        len(training_set.graphs), len(validation_set.graphs)))
 
     # get config
     experiment_config = get_experiment_config(args, training_set)
@@ -67,12 +59,10 @@ def train(args):
     else:
         _print('Loading model from {}\n'.format(args.load))
         model = torch.load(os.path.join(EXP_DIR, args.load, 'model.ckpt'))
+    if torch.cuda.is_available():
+        model.cuda()
     _print(model)
-
-    # loss functions and monitors
-    loss_fn = experiment_config.loss_fn
-    monitors = experiment_config.monitors
-    _print(loss_fn)
+    _print('Training loss: {}\n'.format(experiment_config.loss_fn))
 
     # optimizer
     lr = args.lr
@@ -81,25 +71,21 @@ def train(args):
     #optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.99)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, factor=0.5, patience=3)
     _print(optimizer)
+    _print(scheduler)
 
-    # set device (if using CUDA)
-    if torch.cuda.is_available():
-        torch.cuda.device(args.gpu)
-        
     # Start Training
     for epoch in range(1, args.epochs + 1):
-        results = train_one_epoch(model, training_set, loss_fn, optimizer, monitors, args.debug)
+        results = train_one_epoch(model, training_set, experiment_config.loss_fn, optimizer, experiment_config.monitors, args.debug)
         _print(results_str(epoch, results, 'train'))
 
         if epoch % 5 == 0:
-            results = evaluate_one_epoch(model, validation_set, loss_fn, monitors)
+            results = evaluate_one_epoch(model, validation_set, experiment_config.loss_fn, experiment_config.monitors)
             _print(results_str(epoch, results, 'eval'))
 
             torch.save(model, os.path.join(model_dir, 'model.ckpt'))
             _print("Saved model to {}\n".format(os.path.join(model_dir, 'model.ckpt')))
 
             scheduler.step(results['loss'])
-
     return model
 
 def results_str(epoch, results, run_mode):
@@ -189,7 +175,6 @@ def train_one_epoch(model, dataset, loss_fn, optimizer, monitors, debug):
 
     return epoch_stats
 
-
 def evaluate_one_batch_serial(model, batch, monitors):
     batch_stats = {name: 0.0 for name in monitors.names}
     for i, G in enumerate(batch):
@@ -233,3 +218,18 @@ def evaluate_one_epoch(model, dataset, loss_fn, monitors):
     epoch_stats["time"] = time.time() - t0
 
     return epoch_stats
+
+def get_print_function(model_dir, level):
+    if level == 0:
+        def _print(x):
+            pass
+    elif level == 1:
+        def _print(x):
+            with open(os.path.join(model_dir, 'log.txt'), 'a') as f:
+                f.write(str(x))
+    elif level == 2:
+        def _print(x):
+            with open(os.path.join(model_dir, 'log.txt'), 'a') as f:
+                f.write(str(x))
+            print(x)
+    return _print
