@@ -40,7 +40,7 @@ def wrap_tensor(tensor, dtype):
     if dtype=='long':
         var = var.long()
     if torch.cuda.is_available():
-        var.cuda()
+        var = var.cuda()
     return var
 
 class GraphDataset(Dataset):

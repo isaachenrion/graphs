@@ -40,7 +40,7 @@ class BaseMPNN(nn.Module):
         for u in G.nodes():
             h = Variable(torch.zeros(batch_size, self.config.message.config.hidden_dim))
             if torch.cuda.is_available():
-                h.cuda()
+                h = h.cuda()
             G.node[u]['hidden'] = h
 
         return None
