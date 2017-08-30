@@ -100,7 +100,7 @@ def results_str(epoch, results, run_mode):
     return out_str
 
 def unwrap(variable_dict):
-    return {name: var.data.numpy().item() for name, var in variable_dict.items()}
+    return {name: var.data.cpu().numpy().item() for name, var in variable_dict.items()}
 
 def train_one_batch_serial(model, batch, loss_fn, optimizer, monitors):
     batch_loss = Variable(torch.zeros(1))
