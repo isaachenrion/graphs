@@ -7,9 +7,13 @@ def get_model_generator(model_str):
         return make_mpnn
     elif model_str == 'flat':
         return make_flat
+    elif model_str == 'vcn':
+        return make_mpnn
 
 def get_model_config(model_str, args, dataset):
     if model_str == 'mpnn':
         return get_mpnn_config(args, dataset)
     elif model_str == 'flat':
         return get_flat_config(args, dataset)
+    elif model_str == 'vcn':
+        return get_mpnn_config(args, dataset)

@@ -4,7 +4,7 @@ FlatConfig = namedtuple(
         'FlatConfig', [
             'state_dim',
             'hidden_dim',
-            'readout_dim',
+            'graph_targets',
             'mode'
         ]
 )
@@ -12,8 +12,8 @@ FlatConfig = namedtuple(
 def get_flat_config(args, dataset):
     config = FlatConfig(
         state_dim=dataset.flat_graph_state_dim,
-        hidden_dim=500,
-        readout_dim=dataset.readout_dim,
+        hidden_dim=args.hidden_dim,
+        graph_targets=dataset.graph_targets,
         mode=dataset.problem_type
     )
     return config

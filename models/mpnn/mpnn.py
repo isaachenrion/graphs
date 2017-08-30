@@ -4,123 +4,131 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from collections import namedtuple
 
-
+from .readout import make_readout
+from .message import make_message
+from .embedding import make_embedding
+from .vertex_update import make_vertex_update
 
 class BaseMPNN(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
         self.n_iters = config.n_iters
-        self.message = config.message.function(config.message.config)
-        self.vertex_update = config.vertex_update.function(config.vertex_update.config)
-        self.readout = config.readout.function(config.readout.config)
+        self.message = make_message(config.message)
+        self.vertex_update = make_vertex_update(config.vertex_update)
+        self.readout = make_readout(config.readout)
 
     def forward(self, G):
+        #import ipdb; ipdb.set_trace()
+        self.embed_data(G)
+        for i in range(self.n_iters):
+            self.message_passing(G)
+        out = self.readout(G)
+        return out
+
+    def message_passing(self, G):
+        pass
+
+    def embed_data(self, G):
         pass
 
     def reset_hidden_states(self, G):
-        pass
+        try:
+            batch_size = G.graph['batch_size']
+        except KeyError:
+            batch_size = 1
+        for u in G.nodes():
+            G.node[u]['hidden'] = Variable(torch.zeros(batch_size, self.config.message.config.hidden_dim))
+        return None
 
 class VertexOnlyMPNN(BaseMPNN):
     def __init__(self, config):
         super().__init__(config)
-        self.embedding = config.embedding.function(config.embedding.config)
+        self.embedding = make_embedding(config.embedding)
 
-    def forward(self, G):
-        # embed the data
-        for v in G.nodes():
-            G.node[v]['state'] = self.embedding(G.node[v]['data'])
-
+    def message_passing(self, G):
         # iterate message passing
-        for idx in range(self.n_iters):
-            for v in G.nodes():
+        for v in G.nodes():
+            if len(G.neighbors(v)) > 0:
                 x_v = G.node[v]['state']
                 h_v = G.node[v]['hidden']
-                m_v = G.node[v]['message']
+                m_vws = []
                 for w in G.neighbors(v):
                     h_w = G.node[w]['hidden']
-                    m_vw = self.message(h_v, h_w)
-                    m_v = m_v + m_vw
-                G.node[v]['message'] = m_v
+                    m_vws.append(self.message(h_w, None))
+                m_v = torch.mean(torch.stack(m_vws, 2), 2)
                 G.node[v]['hidden'] = self.vertex_update(m_v, h_v, x_v)
+        return None
 
-        # readout
-        out = self.readout([G.node[v]['hidden'] for v in G.nodes()])
-        return out
-
-    def reset_hidden_states(self, G):
-        for u in G.nodes():
-            G.node[u]['hidden'] = Variable(torch.zeros(1, self.config.message.config.hidden_dim))
-            G.node[u]['message'] = Variable(torch.zeros(1, self.config.message.config.message_dim))
-        return G
+    def embed_data(self, G):
+        for v in G.nodes():
+            G.node[v]['state'] = self.embedding(G.node[v]['data'])
+        return None
 
 class GeneralMPNN(BaseMPNN):
     def __init__(self, config):
         super().__init__(config)
-        self.embedding = config.embedding.function(config.embedding[1])
+        self.embedding = make_embedding(config.embedding)
 
-    def forward(self, G):
-        # embed the data
+    def embed_data(self, G):
         for v in G.nodes():
             G.node[v]['state'] = self.embedding(G.node[v]['data'])
+        return None
 
-        # iterate message passing
-        for idx in range(self.n_iters):
-            for v in G.nodes():
+    def message_passing(self, G):
+        for v in G.nodes():
+            if len(G.neighbors(v)) > 0:
                 x_v = G.node[v]['state']
                 h_v = G.node[v]['hidden']
-                m_v = G.node[v]['message']
+                m_vws = []
                 for w in G.neighbors(v):
                     h_w = G.node[w]['hidden']
-                    e_vw = G.edge[v][w]['edge']
-                    m_vw = self.message(h_v, h_w, e_vw)
-                    m_v = m_v + m_vw
-                G.node[v]['message'] = m_v
+                    e_vw = G.edge[v][w]['data']
+                    m_vws.append(self.message(h_w, e_vw))
+                m_v = torch.mean(torch.stack(m_vws, 2), 2)
                 G.node[v]['hidden'] = self.vertex_update(m_v, h_v, x_v)
-
-        # readout
-        out = self.readout([G.node[v]['hidden'] for v in G.nodes()])
-        return out
-
-    def reset_hidden_states(self, G):
-        for u in G.nodes():
-            G.node[u]['hidden'] = Variable(torch.zeros(1, self.config.message.config.hidden_dim))
-            G.node[u]['message'] = Variable(torch.zeros(1, self.config.message.config.message_dim))
-        return G
+        return None
 
 class EdgeOnlyMPNN(BaseMPNN):
     def __init__(self, config):
         super().__init__(config)
 
-    def forward(self, G):
-        # iterate message passing
-        for idx in range(self.n_iters):
-            for v in G.nodes():
+    def message_passing(self, G):
+        for v in G.nodes():
+            if len(G.neighbors(v)) > 0:
                 h_v = G.node[v]['hidden']
-                m_v = G.node[v]['message']
+                m_vws = []
                 for w in G.neighbors(v):
                     h_w = G.node[w]['hidden']
                     e_vw = G.edge[v][w]['data']
-                    m_vw = self.message(h_v, h_w, e_vw)
-                    m_v = m_v + m_vw
-                G.node[v]['message'] = m_v
+                    m_vws.append(self.message(h_w, e_vw))
+                m_v = torch.mean(torch.stack(m_vws, 2), 2)
                 G.node[v]['hidden'] = self.vertex_update(m_v, h_v)
 
-        # readout
-        out = self.readout([G.node[v]['hidden'] for v in G.nodes()])
-        return out
+        return None
 
-    def reset_hidden_states(self, G):
-        batch_size = G.graph['readout'].size()[0]
-        for u in G.nodes():
-            G.node[u]['hidden'] = Variable(torch.zeros(batch_size, self.config.message.config.hidden_dim))
-            G.node[u]['message'] = Variable(torch.zeros(batch_size, self.config.message.config.message_dim))
-        return G
+class StructureOnlyMPNN(BaseMPNN):
+    def __init__(self, config):
+        super().__init__(config)
 
-def make_mpnn(config):
-    if config.vertex_update.config.vertex_state_dim == 0:
-        return EdgeOnlyMPNN(config)
-    elif config.message.config.edge_dim == 0:
-        return VertexOnlyMPNN(config)
-    else:
-        return GeneralMPNN(config)
+    def message_passing(self, G):
+        for v in G.nodes():
+            if len(G.neighbors(v)) > 0:
+                h_v = G.node[v]['hidden']
+                m_vws = []
+                for w in G.neighbors(v):
+                    h_w = G.node[w]['hidden']
+                    m_vws.append(self.message(h_w, None))
+                m_v = torch.mean(torch.stack(m_vws, 2), 2)
+                G.node[v]['hidden'] = self.vertex_update(m_v, h_v)
+        return None
+
+
+def make_mpnn(mpnn_config):
+    if mpnn_config.embedding.config.data_dim == 0:
+        if mpnn_config.message.config.edge_dim == 0:
+            return StructureOnlyMPNN(mpnn_config)
+        return EdgeOnlyMPNN(mpnn_config)
+    elif mpnn_config.message.config.edge_dim == 0:
+        return VertexOnlyMPNN(mpnn_config)
+    return GeneralMPNN(mpnn_config)

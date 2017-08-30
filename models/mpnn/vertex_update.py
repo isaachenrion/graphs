@@ -23,6 +23,8 @@ class GRUVertexUpdate(VertexUpdate):
         return h_v
 
     def _forward_without_vertex_state(self, m_v, h_v):
+        #import ipdb; ipdb.set_trace()
+
         h_v = self.gru(m_v, h_v)
         return h_v
 
@@ -32,20 +34,8 @@ class GRUVertexUpdate(VertexUpdate):
         else:
             return self._forward_without_vertex_state(*args)
 
-class GRUStatelessVertexUpdate(VertexUpdate):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.gru = nn.GRUCell(self.message_dim, self.hidden_dim)
-
-    def forward(self, m_v, h_v):
-        h_v = self.gru(m_v, h_v)
-        return h_v
-
-class GRUStatefulVertexUpdate(VertexUpdate):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.gru = nn.GRUCell(self.message_dim + self.vertex_state_dim, self.hidden_dim)
-
-    def forward(self, m_v, h_v, x_v):
-        h_v = self.gru(torch.cat([m_v, x_v], 1), h_v)
-        return h_v
+def make_vertex_update(vertex_update_config):
+    if vertex_update_config.function == 'gru':
+        return GRUVertexUpdate(vertex_update_config.config)
+    else:
+        raise ValueError("Unsupported vertex update function! ({})".format(vertex_update_config.function))

@@ -20,12 +20,14 @@ import copy
 import os
 from models import *
 from datasets import load_data
-from evaluate import evaluate
 import networkx as nx
+import torch.nn.functional as F
 
 EXP_DIR = "experiments"
 
 def train(args):
+    global DEBUG
+    DEBUG = args.debug
     # get timestamp for model id
     dt = datetime.datetime.now()
     timestamp = '{}-{}___{:02d}-{:02d}-{:02d}'.format(dt.strftime("%b"), dt.day, dt.hour, dt.minute, dt.second)
@@ -37,78 +39,63 @@ def train(args):
             pass
     elif args.verbosity == 1:
         def _print(x):
-            print(x)
+            with open(os.path.join(model_dir, 'log.txt'), 'a') as f:
+                f.write(str(x))
     elif args.verbosity == 2:
-        outfile = open(os.path.join(model_dir, 'log.txt'), 'w')
         def _print(x):
+            with open(os.path.join(model_dir, 'log.txt'), 'a') as f:
+                f.write(str(x))
             print(x)
-            outfile.write(str(x))
 
-    for k, v in vars(args).items(): print('{} : {}'.format(k, v))
+    for k, v in vars(args).items(): _print('{} : {}\n'.format(k, v))
 
-    # load train data
-    _print('Loading data...')
-    training_set, validation_set = load_data(args.problem)
+    # load data
+    training_set, validation_set = load_data(args)
 
+    out_str = 'Loaded data: {} training examples, {} validation examples\n'.format(
+        len(training_set.graphs), len(validation_set.graphs)
+    )
+    _print(out_str)
+
+    # get config
     experiment_config = get_experiment_config(args, training_set)
 
-    # Initialize MPNN Model
+    # initialize model
     if args.load is None:
-
-        _print('Initializing model...')
-
-        model_generator = experiment_config.model_generator
-        model_config = experiment_config.model_config
-        model = model_generator(model_config)
-
-        #if args.model == 'mpnn':
-        #    model = make_mpnn(config)
-        #elif args.model == 'flat':
-        #    model = Flat(
-        #        state_dim=training_set.flat_graph_state_dim,
-        #        hidden_dim=500,
-        #        readout_dim=training_set.readout_dim,
-        #        mode=mode
-        #    )
-
+        _print('Initializing model...\n')
+        model = experiment_config.model_generator(experiment_config.model_config)
     else:
-        _print('Loading model from {}!'.format(args.load))
+        _print('Loading model from {}\n'.format(args.load))
         model = torch.load(os.path.join(EXP_DIR, args.load, 'model.ckpt'))
     _print(model)
 
-    # Loss functions
-    #if mode == 'clf': # classification
-    #    loss_fn = nn.BCELoss()
-    #    monitors = CLF_MONITORS
-    #elif mode == 'reg': # regression
-    #    loss_fn = nn.MSELoss()
-    #    monitors = REG_MONITORS
+    # loss functions and monitors
     loss_fn = experiment_config.loss_fn
     monitors = experiment_config.monitors
     _print(loss_fn)
 
-    # Optimizer
+    # optimizer
     lr = args.lr
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
+    #optimizer = optim.RMSprop(model.parameters(), lr=lr, weight_decay=args.weight_decay)
+    #optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.99)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, factor=0.5, patience=3)
     _print(optimizer)
 
-    # global step
-    global_step = 0
-
     # Start Training
     for epoch in range(1, args.epochs + 1):
-        results = train_one_epoch(model, training_set, loss_fn, optimizer, monitors)
-        out_str = results_str(epoch, results, 'train')
-        _print(out_str)
+        results = train_one_epoch(model, training_set, loss_fn, optimizer, monitors, args.debug)
+        _print(results_str(epoch, results, 'train'))
 
         if epoch % 5 == 0:
-            results = evaluate(model, validation_set, loss_fn, monitors)
-            scheduler.step(results['loss'])
-            out_str = results_str(epoch, results, 'eval')
-            _print(out_str)
+            results = evaluate_one_epoch(model, validation_set, loss_fn, monitors)
+            _print(results_str(epoch, results, 'eval'))
+
             torch.save(model, os.path.join(model_dir, 'model.ckpt'))
-            _print("Saved model to {}".format(os.path.join(model_dir, 'model.ckpt')))
+            _print("Saved model to {}\n".format(os.path.join(model_dir, 'model.ckpt')))
+
+            scheduler.step(results['loss'])
+
     return model
 
 def results_str(epoch, results, run_mode):
@@ -122,46 +109,123 @@ def results_str(epoch, results, run_mode):
         out_str += pad_str
     return out_str
 
-def train_one_epoch(model, dataset, loss_fn, optimizer, monitors):
-    batch_size = 1
-    epoch_loss = 0.0
-    epoch_acc = 0.0
-    t0 = time.time()
-    epoch_stats = {name: 0.0 for name in monitors.keys()}
+def unwrap(variable_dict):
+    return {name: var.data.numpy().item() for name, var in variable_dict.items()}
 
-    for i, G_batch in enumerate(dataset):
-
+def train_one_batch_serial(model, batch, loss_fn, optimizer, monitors):
+    batch_loss = Variable(torch.zeros(1))
+    batch_stats = {name: 0.0 for name in monitors.names}
+    optimizer.zero_grad()
+    for i, G in enumerate(batch):
         # reset hidden states
-        G_batch = model.reset_hidden_states(G_batch)
-
-        # clear buffers
-        optimizer.zero_grad()
-
+        model.reset_hidden_states(G)
         # forward model
-        readout = model(G_batch)
+        model_output = model(G)
+        # get loss
+        loss = loss_fn(model_output, G)
+        batch_loss += loss
+        # get stats
+        stats = unwrap(monitors(model_output, G))
+        batch_stats = {name: (batch_stats[name] + stats[name]) for name in monitors.names}
 
-        # get loss, backward and optimize
-        loss = loss_fn(readout, G_batch.graph['readout'])
-        loss.backward()
-        optimizer.step()
+    batch_loss = batch_loss / len(batch)
+    batch_loss.backward()
 
-        # stats
-        stats = {name: monitor(G_batch, readout) for name, monitor in monitors.items()}
-        epoch_stats = {name: (epoch_stats[name] + stats[name]) for name in monitors.keys()}
+    torch.nn.utils.clip_grad_norm(model.parameters(), .1)
+    optimizer.step()
 
-        if i % 10 == 0 and False:
-            #G_ = copy.copy(G)
-            #for u, v in G_.edges():
-            #    data = G_.edge[u][v]['data']
-            #    G_.edge[u][v]['data'] = np.round(data.data.numpy()[0], 2).item()
-            #am = nx.adjacency_matrix(G, weight='data')
-            #print(am.todense())
-            print("TARGET = {}".format(G_batch.graph['readout'].data.numpy()[0]))
-            print("READOUT = {}".format(readout.data.numpy()[0]))
-            print("")
+    batch_stats = {name: batch_stats[name] / len(batch) for name in monitors.names}
+    return batch_stats
 
+def train_one_batch_parallel(model, batch, loss_fn, optimizer, monitors):
 
-    t = time.time() - t0
+    optimizer.zero_grad()
+    model.reset_hidden_states(batch)
+
+    # forward model
+    model_output = model(batch)
+
+    # get loss
+    batch_loss = loss_fn(model_output, batch)
+
+    #import ipdb; ipdb.set_trace()
+
+    # backward and optimize
+    batch_loss.backward()
+
+    if DEBUG:
+        for k, v in model_output.items():
+            print("Output variance: {}".format(v.var(0).data.numpy()[0]))
+            print("Target variance: {}".format(batch.graph[k].var(0).data.numpy()[0]))
+
+    torch.nn.utils.clip_grad_norm(model.parameters(), .1)
+    optimizer.step()
+
+    # get stats
+    batch_stats = unwrap(monitors(model_output, batch))
+
+    return batch_stats
+
+def train_one_epoch(model, dataset, loss_fn, optimizer, monitors, debug):
+    t0 = time.time()
+    epoch_stats = {name: 0.0 for name in monitors.names}
+
+    if dataset.order is None:
+        train_one_batch = train_one_batch_serial
+    else:
+        train_one_batch = train_one_batch_parallel
+
+    model.train()
+    for i, batch in enumerate(dataset):
+        batch_stats = train_one_batch(model, batch, loss_fn, optimizer, monitors)
+        epoch_stats = {name: (epoch_stats[name] + batch_stats[name]) for name in monitors.names}
+
     epoch_stats = {name: stat / len(dataset) for name, stat in epoch_stats.items()}
-    epoch_stats["time"] = t
+    epoch_stats["time"] = time.time() - t0
+
+    return epoch_stats
+
+
+def evaluate_one_batch_serial(model, batch, monitors):
+    batch_stats = {name: 0.0 for name in monitors.names}
+    for i, G in enumerate(batch):
+        # reset hidden states
+        model.reset_hidden_states(G)
+        # forward model
+        model_output = model(G)
+        # get stats
+        stats = unwrap(monitors(model_output, G))
+        batch_stats = {name: (batch_stats[name] + stats[name]) for name in monitors.names}
+
+    batch_stats = {name: batch_stats[name] / len(batch) for name in monitors.names}
+    return batch_stats
+
+def evaluate_one_batch_parallel(model, batch, monitors):
+
+    model.reset_hidden_states(batch)
+
+    # forward model
+    model_output = model(batch)
+
+    # get stats
+    batch_stats = unwrap(monitors(model_output, batch))
+
+    return batch_stats
+
+def evaluate_one_epoch(model, dataset, loss_fn, monitors):
+    t0 = time.time()
+    epoch_stats = {name: 0.0 for name in monitors.names}
+
+    model.eval()
+
+    for i, batch in enumerate(dataset):
+        if dataset.order is None:
+            batch_stats = evaluate_one_batch_serial(model, batch, monitors)
+        else:
+            batch_stats = evaluate_one_batch_parallel(model, batch, monitors)
+        epoch_stats = {name: (epoch_stats[name] + batch_stats[name]) for name in monitors.names}
+
+    epoch_stats = {name: stat / len(dataset) for name, stat in epoch_stats.items()}
+    epoch_stats["time"] = time.time() - t0
+
     return epoch_stats

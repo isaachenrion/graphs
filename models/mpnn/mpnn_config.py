@@ -1,9 +1,10 @@
 
-from .embedding import *
+from .embedding import make_embedding
 from .message import *
 from .readout import *
 from .vertex_update import *
 from collections import namedtuple
+
 
 
 FunctionAndConfig = namedtuple(
@@ -51,16 +52,17 @@ ReadoutConfig = namedtuple(
         'ReadoutConfig', [
             'hidden_dim',
             'readout_hidden_dim',
-            'readout_dim',
-            'mode'
+            'mode',
+            'graph_targets',
         ]
 )
 
 def get_mpnn_config(args, dataset):
-
+    if args.message == 'constant':
+        args.message_dim = args.hidden_dim + dataset.edge_dim
     config = MPNNConfig(
         message=FunctionAndConfig(
-            function=FullyConnectedMessage,
+            function=args.message,
             config=MessageConfig(
                 hidden_dim=args.hidden_dim,
                 edge_dim=dataset.edge_dim,
@@ -68,25 +70,25 @@ def get_mpnn_config(args, dataset):
             )
         ),
         vertex_update=FunctionAndConfig(
-            function=GRUVertexUpdate,
+            function=args.vertex_update,
             config=VertexUpdateConfig(
-                vertex_state_dim=args.vertex_state_dim,
+                vertex_state_dim=args.vertex_state_dim if args.vertex_state_dim != 0 else dataset.vertex_dim,
                 edge_dim=dataset.edge_dim,
                 hidden_dim=args.hidden_dim,
                 message_dim=args.message_dim
             )
         ),
         readout=FunctionAndConfig(
-            function=FullyConnectedReadout,
+            function=args.readout,
             config=ReadoutConfig(
                 hidden_dim=args.hidden_dim,
                 readout_hidden_dim=10,
-                readout_dim=dataset.readout_dim,
-                mode=dataset.problem_type
+                mode=dataset.problem_type,
+                graph_targets=dataset.graph_targets,
             )
         ),
         embedding=FunctionAndConfig(
-            function=FullyConnectedEmbedding,
+            function=args.embedding,
             config=EmbeddingConfig(
                 data_dim=dataset.vertex_dim,
                 state_dim=args.vertex_state_dim
