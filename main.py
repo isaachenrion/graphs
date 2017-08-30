@@ -4,31 +4,40 @@ from train import train
 import argparse
 
 parser = argparse.ArgumentParser(description='MPNN')
-parser.add_argument('--n_train', type=int, default=100,
-                    help='Number of training examples to generate.')
-parser.add_argument('--n_eval', type=int, default=100,
-                    help='Number of test examples to generate.')
+
+# data args
+parser.add_argument('--n_train', type=int, default=100, help='Number of training examples to generate.')
+parser.add_argument('--n_eval', type=int, default=100, help='Number of test examples to generate.')
 parser.add_argument('--problem', '-p', type=int, default=0, help='problem to train on')
-parser.add_argument('--gen', action='store_true')
+parser.add_argument('--gen', action='store_true', help='generate the data')
+
+# miscellaneous args
+parser.add_argument('--gpu', type=int, default=0, help='Device to use (GPU)')
+parser.add_argument('--verbosity', '-v', type=int, default=2)
+parser.add_argument('--debug', action='store_true')
+
+# training args
 parser.add_argument('--epochs', '-e', type=int, default=100, help='number of epochs to train')
-parser.add_argument('--n_iters', type=int, default=1, help='Number of iterations of message passing')
+parser.add_argument('--batch_size', '-b', type=int, default=100, help='batch size for training')
 parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.00005, help='L2 weight decay')
-parser.add_argument('--verbosity', '-v', type=int, default=2)
+
+# model args
 parser.add_argument('--load', '-l', default=None)
 parser.add_argument('--model', '-m', type=int, default=0)
-parser.add_argument('--batch_size', '-b', type=int, default=100)
 
+# model dimension args
 parser.add_argument('--hidden_dim', type=int, default=100)
 parser.add_argument('--message_dim', type=int, default=100)
 parser.add_argument('--vertex_state_dim', type=int, default=0)
 
+# mpnn args
+parser.add_argument('--n_iters', type=int, default=1, help='Number of iterations of message passing')
 parser.add_argument('--readout', default=None)
 parser.add_argument('--message', default=None)
 parser.add_argument('--vertex_update', default=None)
 parser.add_argument('--embedding', default=None)
 
-parser.add_argument('--debug', action='store_true')
 
 args = parser.parse_args()
 

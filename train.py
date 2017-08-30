@@ -82,6 +82,10 @@ def train(args):
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, factor=0.5, patience=3)
     _print(optimizer)
 
+    # set device (if using CUDA)
+    if torch.cuda.is_available():
+        torch.cuda.device(args.gpu)
+        
     # Start Training
     for epoch in range(1, args.epochs + 1):
         results = train_one_epoch(model, training_set, loss_fn, optimizer, monitors, args.debug)
