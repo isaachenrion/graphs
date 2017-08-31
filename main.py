@@ -8,7 +8,7 @@ parser = argparse.ArgumentParser(description='MPNN')
 # data args
 parser.add_argument('--n_train', type=int, default=100, help='Number of training examples to generate.')
 parser.add_argument('--n_eval', type=int, default=100, help='Number of test examples to generate.')
-parser.add_argument('--problem', '-p', type=int, default=0, help='problem to train on')
+parser.add_argument('--problem', '-t', type=int, default=0, help='task to train on')
 parser.add_argument('--gen', action='store_true', help='generate the data')
 
 # miscellaneous args
@@ -33,6 +33,8 @@ parser.add_argument('--vertex_state_dim', type=int, default=0)
 
 # mpnn args
 parser.add_argument('--n_iters', type=int, default=1, help='Number of iterations of message passing')
+parser.add_argument('--parallelism', '-p', type=int, default=2, help='MPNN parallelism level (0, 1, 2)')
+
 parser.add_argument('--readout', default=None)
 parser.add_argument('--message', default=None)
 parser.add_argument('--vertex_update', default=None)
@@ -40,6 +42,11 @@ parser.add_argument('--embedding', default=None)
 
 
 args = parser.parse_args()
+if args.debug:
+    args.problem = 1
+    args.hidden_dim = 7
+    args.message_dim = 11
+    args.batch_size = 13
 
 PROBLEMS = [
     'qm7', # 0
@@ -64,7 +71,7 @@ if args.model == 'vcn':
     args.embedding = 'constant'
 elif args.model == 'mpnn':
     args.readout = 'fully_connected'
-    args.message = 'fully_connected'
+    args.message = 'edge_message' # 'fully_connected'
     args.vertex_update = 'gru'
     args.embedding = 'constant'
 elif args.model == 'flat':

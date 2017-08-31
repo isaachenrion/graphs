@@ -21,6 +21,7 @@ MPNNConfig = namedtuple(
             'readout',
             'embedding',
             'n_iters',
+            'parallelism'
         ]
 )
 
@@ -28,7 +29,7 @@ MessageConfig = namedtuple(
         'MessageConfig', [
             'hidden_dim',
             'edge_dim',
-            'message_dim'
+            'message_dim',
         ]
 )
 
@@ -66,7 +67,7 @@ def get_mpnn_config(args, dataset):
             config=MessageConfig(
                 hidden_dim=args.hidden_dim,
                 edge_dim=dataset.edge_dim,
-                message_dim=args.message_dim
+                message_dim=args.message_dim,
             )
         ),
         vertex_update=FunctionAndConfig(
@@ -95,5 +96,6 @@ def get_mpnn_config(args, dataset):
             )
         ),
         n_iters=args.n_iters,
+        parallelism=args.parallelism
     )
     return config

@@ -34,6 +34,27 @@ class FullyConnectedMessage(Message):
         x = self.filter_input(h_w, e_vw)
         return self.net(x)
 
+class EdgeMessage(Message):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.edge_net = nn.Linear(self.e_vw_dim, self.message_dim * self.h_w_dim)
+
+    def forward(self, h_w, e_vw):
+        if h_w.dim() == 2:
+            edge_matrix = self.edge_net(e_vw).view(e_vw.size()[0], self.message_dim, self.h_w_dim)
+            message = torch.matmul(edge_matrix, h_w.unsqueeze(-1)).squeeze(-1)
+            #message = torch.mean(message, 2)
+
+        elif h_w.dim() == 3:
+            edge_matrix = self.edge_net(e_vw).view(e_vw.size()[0], e_vw.size()[1], self.message_dim, self.h_w_dim)
+            message = torch.matmul(edge_matrix, h_w.unsqueeze(-1)).squeeze(-1)
+            #message = torch.mean(message, 2)
+        elif h_w.dim() == 4:
+            edge_matrix = self.edge_net(e_vw).view(e_vw.size()[0], e_vw.size()[1], e_vw.size()[2], self.message_dim, self.h_w_dim)
+            message = torch.matmul(edge_matrix, h_w.unsqueeze(-1)).squeeze(-1)
+            message = torch.mean(message, 2)
+        return message
+
 class Constant(Message):
     def __init__(self, config):
         super().__init__(config)
@@ -48,5 +69,7 @@ def make_message(message_config):
         return FullyConnectedMessage(message_config.config)
     elif message_config.function == 'constant':
         return Constant(message_config.config)
+    elif message_config.function == 'edge_message':
+        return EdgeMessage(message_config.config)
     else:
         raise ValueError("Unsupported message function! ({})".format(message_config.function))

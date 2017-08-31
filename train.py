@@ -143,7 +143,7 @@ def train_one_batch_parallel(model, batch, loss_fn, optimizer, monitors):
     # backward and optimize
     batch_loss.backward()
 
-    if DEBUG:
+    if False and DEBUG:
         for k, v in model_output.items():
             print("Output variance: {}".format(v.var(0).data.numpy()[0]))
             print("Target variance: {}".format(batch.graph[k].var(0).data.numpy()[0]))
