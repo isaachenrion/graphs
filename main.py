@@ -43,7 +43,7 @@ parser.add_argument('--embedding', default=None)
 
 args = parser.parse_args()
 
-os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
 if args.debug:
     args.problem = 1
