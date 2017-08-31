@@ -2,7 +2,7 @@ import torch
 from datasets import generate_data
 from train import train
 import argparse
-
+import os
 parser = argparse.ArgumentParser(description='MPNN')
 
 # data args
@@ -42,6 +42,9 @@ parser.add_argument('--embedding', default=None)
 
 
 args = parser.parse_args()
+
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
 if args.debug:
     args.problem = 1
     args.hidden_dim = 7
