@@ -70,7 +70,7 @@ class Constant(Message):
 
     def forward(self, h_w, e_vw):
         if e_vw.dim() == 3:
-            h_w = h_w.unsqueeze(2).expand(e_vw.size()[0], e_vw.size()[1], h_w.size()[-1])
+            #h_w = h_w.expand(e_vw.size()[0], e_vw.size()[1], h_w.size()[-1])
             message = torch.cat([e_vw, h_w], -1)
         elif e_vw.dim() == 4:
             h_w = h_w.unsqueeze(2).expand(e_vw.size()[0], e_vw.size()[1], e_vw.size()[2], h_w.size()[-1])
