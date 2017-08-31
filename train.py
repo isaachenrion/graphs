@@ -69,7 +69,7 @@ def train(args):
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
     #optimizer = optim.RMSprop(model.parameters(), lr=lr, weight_decay=args.weight_decay)
     #optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.99)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, factor=0.5, patience=1)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, factor=0.5, patience=3)
     _print(optimizer)
     _print(scheduler)
 
