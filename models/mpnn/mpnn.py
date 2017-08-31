@@ -136,36 +136,12 @@ class EdgeOnlyMPNN(BaseMPNN):
 
     def _message_passing_all_parallel(self, G):
         h_vs = torch.stack([G.node[v]['hidden'] for v in G.nodes()], 1)
-                #.unsqueeze(
-                #2).expand(
-                #    G.graph['batch_size'],
-                #    G.order(),
-                #    G.order(),
-                #    self.config.message.config.hidden_dim
-                #    )
-        h_ws = torch.stack([G.node[w]['hidden'] for w in G.nodes()], 1).unsqueeze(
-                1).expand(
-                    G.graph['batch_size'],
-                    G.order(),
-                    G.order(),
-                    self.config.message.config.hidden_dim
-                    )
+        h_ws = torch.stack([G.node[w]['hidden'] for w in G.nodes()], 1)
         e_vws = torch.stack([torch.stack([G.edge[v][w]['data'] for w in G.neighbors(v)], 1) for v in G.nodes()], 2)
-        #import ipdb; ipdb.set_trace()
         m_vs = self.message(h_ws, e_vws)
         updates = self.vertex_update(m_vs, h_vs)
         for v in G.nodes():
             G.node[v]['hidden'] = updates[:, v, :]
-
-        #for v in G.nodes():
-        #    if len(G.neighbors(v)) > 0:
-        #        h_v = G.node[v]['hidden']
-        #        m_vws = []
-        #        h_ws = torch.stack([G.node[w]['hidden'] for w in G.neighbors(v)], 1)
-        #        e_vws = torch.stack([G.edge[v][w]['data'] for w in G.neighbors(v)], 1)
-        #        m_vws = self.message(h_ws, e_vws)
-        #        m_v = torch.mean(m_vws, 1)
-        #        G.node[v]['hidden'] = self.vertex_update(m_v, h_v)
 
         return None
 
