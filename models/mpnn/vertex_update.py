@@ -19,7 +19,17 @@ class GRUVertexUpdate(VertexUpdate):
         self.gru = nn.GRUCell(self.message_dim + self.vertex_state_dim, self.hidden_dim)
 
     def _forward_with_vertex_state(self, m_v, h_v, x_v):
-        h_v = self.gru(torch.cat([m_v, x_v], 1), h_v)
+        if h_v.dim() == 3:
+            batch_size = h_v.size()[0]
+            order = h_v.size()[1]
+            hidden_dim = h_v.size()[2]
+            h_v = h_v.view(-1, hidden_dim)
+            m_v = m_v.view(-1, m_v.size()[-1])
+            h_v = self.gru(torch.cat([m_v, x_v], 1), h_v)
+            h_v = h_v.view(batch_size, order, hidden_dim)
+        else:
+            h_v = self.gru(torch.cat([m_v, x_v], 1), h_v)
+
         return h_v
 
     def _forward_without_vertex_state(self, m_v, h_v):

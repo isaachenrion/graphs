@@ -15,7 +15,6 @@ Target = namedtuple(
     ]
 )
 
-
 def wrap_vertices(G, dtype='float'):
     for u in G.nodes():
         G.node[u]['data'] = wrap_tensor(G.node[u]['data'], dtype)
@@ -148,6 +147,7 @@ class BatchedGraphDataset(GraphDataset):
                     wrap_graph_targets(G, self.graph_targets, dtype)
         return wrapped_dataset
 
+
 class BatchedFixedOrderGraphDataset(BatchedGraphDataset):
     def __init__(self, graph_dataset, batch_size):
         self.flat_graph_state_dim=graph_dataset.flat_graph_state_dim
@@ -202,7 +202,6 @@ class BatchedFixedOrderGraphDataset(BatchedGraphDataset):
             if batch_size * on_batch + self.remainder == len(self.graphs):
                 break
 
-
     def preprocess(self):
         wrapped_dataset = copy.deepcopy(self)
         for i, G in enumerate(wrapped_dataset):
@@ -216,3 +215,29 @@ class BatchedFixedOrderGraphDataset(BatchedGraphDataset):
             wrap_one_graph_state(G, 'flat_graph_state')
 
         return wrapped_dataset
+
+    def randomize_nodes(self):
+
+        old_batches = self.batches
+        new_batches = []
+        for batch in old_batches:
+            old_batch = batch
+            new_batch = nx.create_empty_copy(batch)
+            permutation = np.random.permutation(self.order)
+            # permute the vertex data
+            if self.has_vertex_data():
+                for i in old_batch.nodes():
+                    new_batch.node[i]['data'] = old_batch.node[permutation[i]]['data']
+
+            # permute the edge data
+            if self.has_edge_data():
+                for (u, v) in old_batch.edges():
+                    u_, v_ = permutation[u], permutation[v]
+                    new_batch.add_edge(u, v, data=old_batch.edge[u_][v_]['data'])
+
+            # port over the graph level info
+            for k, v in old_batch.graph.items():
+                new_batch.graph[k] = v
+
+            new_batches.append(new_batch)
+        self.batches = new_batches

@@ -14,10 +14,14 @@ def generate_data(prefix, problem, num_examples):
         data = has_path(prefix, num_examples)
     elif problem == 'is_connected':
         data = is_connected(prefix, num_examples)
-    elif problem == 'qm7':
-        data = qm7(prefix)
-    elif problem == 'qm7_small':
-        data = qm7_small(prefix)
+    elif problem == 'qm7_edge_representation':
+        data = qm7(prefix, 'edge')
+    elif problem == 'qm7_edge_representation_small':
+        data = qm7_small(prefix, 'edge')
+    elif problem == 'qm7_vertex_representation':
+        data = qm7(prefix, 'vertex')
+    elif problem == 'qm7_vertex_representation_small':
+        data = qm7_small(prefix, 'vertex')
     elif problem == 'qm7b':
         data = qm7b(prefix)
     elif problem == 'qm7b_small':
@@ -142,15 +146,13 @@ def is_connected(prefix='train', num_examples=1, debug=False):
     mean_connected = 0.
     for i in range(num_examples):
         order = np.random.randint(5, 15)
-        eps = 1e-5 * (2 * np.random.randint(0, 2) - 1)
+        eps = 1e-1 * (4 * np.random.randint(0, 2))
         p = (1 + eps) * np.log(order) / order
         graph= nx.fast_gnp_random_graph(order, p)
         graph.graph['is_connected'] = np.ones([1]) if nx.is_connected(graph) else np.zeros([1])
 
-
         for node in graph.nodes():
             graph.node[node]['data'] = np.ones([1,1])
-
 
         for u in range(order):
             for v in range(order):
@@ -172,30 +174,33 @@ def is_connected(prefix='train', num_examples=1, debug=False):
     )
     return data
 
-def qm7(prefix, N=-1):
+def qm7(prefix, representation='edge', N=-1):
     n_atoms = 23
+    if representation == 'vertex':
+        vertex_dim = 4
+        edge_dim = 0
+    elif representation == 'edge':
+        vertex_dim = 0
+        edge_dim = 1
     graph_targets = [
         Target('E', 'graph', 1)
     ]
 
     data = scipy.io.loadmat(os.path.join(DATA_DIR, "qm7.mat"))
-    edge_data = np.expand_dims(data['X'], -1)
     T = np.expand_dims(data['T'][0], -1)
 
     # standardize
+    edge_data = np.expand_dims(data['X'], -1)
     edge_data = edge_data - np.mean(edge_data, 0, keepdims=True)
     edge_data = edge_data / np.std(edge_data, 0, keepdims=True)
-    #edge_data = np.concatenate([edge_data, np.ones_like(edge_data)], 3)
 
-    #T_mean = np.mean(T, 0, keepdims=True)
-    #T_std = np.std(T, 0, keepdims=True)
-    #T = (T - T_mean) / T_std
-
-
-    Z = data['Z']
-    R = data['R']
+    vertex_data = np.concatenate([np.expand_dims(data['Z'],-1), data['R']], -1)
+    vertex_data = vertex_data - np.mean(vertex_data, 0, keepdims=True)
+    vertex_data = vertex_data / np.std(vertex_data, 0, keepdims=True)
 
     P = data['P']
+
+    #import ipdb; ipdb.set_trace()
 
     graphs = []
     if prefix == 'train':
@@ -204,10 +209,16 @@ def qm7(prefix, N=-1):
         good_indices = P[0][:N]
 
     for i, idx in enumerate(good_indices):
-        G = nx.Graph()
-        add_edge_data(G, edge_data[idx])
+        G = nx.complete_graph(n_atoms)
+        if representation == 'vertex':
+            add_vertex_data(G, vertex_data[idx])
+            add_graph_data(G, np.reshape(vertex_data[idx], [-1]), key='flat_graph_state')
+
+        elif representation == 'edge':
+            add_edge_data(G, edge_data[idx])
+            add_graph_data(G, np.reshape(edge_data[idx], [-1]), key='flat_graph_state')
+
         add_graph_data(G, T[idx], key='E')
-        add_graph_data(G, np.reshape(edge_data[idx], [-1]), key='flat_graph_state')
         graphs.append(G)
 
     processed_data = FixedOrderGraphDataset(
@@ -215,14 +226,14 @@ def qm7(prefix, N=-1):
         graphs=graphs,
         flat_graph_state_dim=G.graph['flat_graph_state'].shape[-1],
         problem_type="reg",
-        vertex_dim=0,
-        edge_dim= 1,
+        vertex_dim=vertex_dim,
+        edge_dim=edge_dim,
         graph_targets=graph_targets
     )
     return processed_data
 
-def qm7_small(prefix):
-    return qm7(prefix, 100)
+def qm7_small(prefix, representation='edge'):
+    return qm7(prefix, representation,100)
 
 def qm7b(prefix, N=-1):
     n_atoms = 23

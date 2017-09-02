@@ -69,12 +69,15 @@ def train(args):
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay)
     #optimizer = optim.RMSprop(model.parameters(), lr=lr, weight_decay=args.weight_decay)
     #optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.99)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, factor=0.5, patience=3)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, factor=0.5, patience=3, min_lr=lr/32)
     _print(optimizer)
     _print(scheduler)
 
     # Start Training
     for epoch in range(1, args.epochs + 1):
+        if args.randomize_nodes:
+            training_set.randomize_nodes()
+
         results = train_one_epoch(model, training_set, experiment_config.loss_fn, optimizer, experiment_config.monitors, args.debug)
         _print(results_str(epoch, results, 'train'))
 

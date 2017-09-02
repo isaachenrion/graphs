@@ -22,24 +22,17 @@ class Flat(nn.Module):
 
     def forward(self, G):
         flat_graph_state = G.graph['flat_graph_state']
-        #import ipdb; ipdb.set_trace()
-        #x = self.bn0(flat_graph_state)
         x = flat_graph_state
         x = self.fc1(x)
-
         x = self.activation(x)
-        #x = torch.mean(x, 1, keepdim=True)
         x = self.bn1(x)
         x = self.activation(self.fc2(x))
         x = self.bn2(x)
         x = self.activation(self.fc3(x))
         x = self.bn3(x)
         x = self.fc4(x)
-        #print("weight norms", self.fc4.weight.norm(2).data.numpy())
-        #print("bias", self.fc4.bias.data.numpy())
         if self.mode == 'clf':
             x = F.sigmoid(x)
-        #import ipdb; ipdb.set_trace()
         out = {target.name: x[:, i] for i, target in enumerate(self.graph_targets)}
         return out
 

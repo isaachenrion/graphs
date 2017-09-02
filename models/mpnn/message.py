@@ -8,19 +8,20 @@ class Message(nn.Module):
     '''
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.h_w_dim = config.hidden_dim
         self.e_vw_dim = config.edge_dim
         self.message_dim = config.message_dim
 
-    def forward(self, h_w, e_vw):
-        pass
+    def forward(self, h_ws, e_vws):
+        return self.filter_input(h_ws, e_vws)
 
-    def filter_input(self, h_w, e_vw):
-        if e_vw is None:
-            return h_w
-        elif h_w is None:
-            return e_vw
-        return torch.cat([h_w, e_vw], -1)
+    def filter_input(self, h_ws, e_vws):
+        if e_vws is None:
+            return h_ws
+        elif h_ws is None:
+            return e_vws
+        return torch.cat([h_ws, e_vws], -1)
 
 class FullyConnectedMessage(Message):
     def __init__(self, *args):
@@ -68,9 +69,20 @@ class Constant(Message):
     def __init__(self, config):
         super().__init__(config)
 
-    def forward(self, h_w, e_vw):
+    def forward(self, *args):
+        if self.config.edge_dim == 0:
+            return self._forward_without_edge(*args)
+        else:
+            return self._forward_with_edge(*args)
+
+    def _forward_without_edge(self, h_w):
+        if h_w.dim() == 2:
+            return h_w
+        elif h_w.dim() == 3:
+            return h_w
+
+    def _forward_with_edge(self, h_w, e_vw):
         if e_vw.dim() == 3:
-            #h_w = h_w.expand(e_vw.size()[0], e_vw.size()[1], h_w.size()[-1])
             message = torch.cat([e_vw, h_w], -1)
         elif e_vw.dim() == 4:
             h_w = h_w.unsqueeze(2).expand(e_vw.size()[0], e_vw.size()[1], e_vw.size()[2], h_w.size()[-1])

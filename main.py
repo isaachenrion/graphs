@@ -21,6 +21,7 @@ parser.add_argument('--debug', action='store_true')
 # training args
 parser.add_argument('--epochs', '-e', type=int, default=100, help='number of epochs to train')
 parser.add_argument('--batch_size', '-b', type=int, default=100, help='batch size for training')
+parser.add_argument('--randomize_nodes', '-r', action='store_true', help='Randomize the ordering of the nodes')
 parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.00005, help='L2 weight decay')
 
@@ -49,24 +50,28 @@ os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
 if args.debug:
     args.problem = 1
+    args.weight_decay = 0.
     args.hidden_dim = 7
+    args.n_iters = 2
     args.message_dim = 11
     args.batch_size = 13
 
 PROBLEMS = [
-    'qm7', # 0
-    'qm7_small', # 1
-    'qm7b', # 2
-    'qm7b_small', # 3
-    'arithmetic', # 4
-    'has_path', # 5
-    'is_connected', # 6
-    'simple', # 7
+    'qm7_edge_representation',
+    'qm7_edge_representation_small',
+    'qm7_vertex_representation',
+    'qm7_vertex_representation_small',
+    'qm7b',
+    'qm7b_small',
+    'arithmetic',
+    'has_path',
+    'is_connected',
+    'simple',
 ]
 args.problem = PROBLEMS[args.problem]
 
 MODELS = [
-'mpnn', 'flat', 'vcn'
+'mpnn', 'flat', 'vcn', 'mpnn_set'
 ]
 args.model = MODELS[args.model]
 if args.model == 'vcn':
@@ -76,6 +81,11 @@ if args.model == 'vcn':
     args.embedding = 'constant'
 elif args.model == 'mpnn':
     args.readout = 'fully_connected'
+    args.message = 'constant' # 'fully_connected'
+    args.vertex_update = 'gru'
+    args.embedding = 'constant'
+elif args.model == 'mpnn_set':
+    args.readout = 'set'
     args.message = 'constant' # 'fully_connected'
     args.vertex_update = 'gru'
     args.embedding = 'constant'
