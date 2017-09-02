@@ -107,6 +107,8 @@ def unwrap(variable_dict):
 
 def train_one_batch_serial(model, batch, loss_fn, optimizer, monitors):
     batch_loss = Variable(torch.zeros(1))
+    if torch.cuda.is_available(): batch_loss = batch_loss.cuda()
+    
     batch_stats = {name: 0.0 for name in monitors.names}
     optimizer.zero_grad()
     for i, G in enumerate(batch):
