@@ -22,7 +22,7 @@ parser.add_argument('--debug', action='store_true')
 parser.add_argument('--epochs', '-e', type=int, default=100, help='number of epochs to train')
 parser.add_argument('--batch_size', '-b', type=int, default=100, help='batch size for training')
 parser.add_argument('--randomize_nodes', '-r', action='store_true', help='Randomize the ordering of the nodes')
-parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
+parser.add_argument('--lr', type=float, default=0.0005, help='Learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.00005, help='L2 weight decay')
 
 # model args

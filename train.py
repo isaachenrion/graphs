@@ -78,8 +78,8 @@ def train(args):
         if args.randomize_nodes:
             training_set.randomize_nodes()
 
-        results = train_one_epoch(model, training_set, experiment_config.loss_fn, optimizer, experiment_config.monitors, args.debug)
-        _print(results_str(epoch, results, 'train'))
+        train_results = train_one_epoch(model, training_set, experiment_config.loss_fn, optimizer, experiment_config.monitors, args.debug)
+        _print(results_str(epoch, train_results, 'train'))
 
         if epoch % 5 == 0:
             results = evaluate_one_epoch(model, validation_set, experiment_config.loss_fn, experiment_config.monitors)
@@ -88,7 +88,7 @@ def train(args):
             torch.save(model, os.path.join(model_dir, 'model.ckpt'))
             _print("Saved model to {}\n".format(os.path.join(model_dir, 'model.ckpt')))
 
-            _print("Processed {:.1f} graphs per second".format(len(validation_set.graphs) / results['time']))
+            _print("Training: processed {:.1f} graphs per second".format(len(training_set.graphs) / train_results['time']))
             scheduler.step(results['loss'])
     return model
 
