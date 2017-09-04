@@ -17,6 +17,28 @@ class Readout(nn.Module):
     def forward(self, G):
         pass
 
+
+class DTNNReadout(Readout):
+    def __init__(self, config):
+        super().__init__(config)
+        self.readout_hidden_dim = config.readout_hidden_dim
+        self.activation = nn.LeakyReLU
+        net = nn.Sequential(
+                nn.Linear(self.hidden_dim, self.readout_hidden_dim),
+                self.activation(),
+                nn.Linear(self.readout_hidden_dim, self.readout_dim),
+                )
+        self.net = net
+
+    def forward(self, G):
+        x = torch.stack([G.node[v]['hidden'] for v in G.nodes()], 1)
+        x = self.net(x).sum(1)
+        if self.classify:
+            return {target.name: x for i, target in enumerate(self.graph_targets)}
+        else:
+            return {target.name: x[:, i] for i, target in enumerate(self.graph_targets)}
+
+
 class FullyConnectedReadout(Readout):
     def __init__(self, config):
         super().__init__(config)
@@ -55,7 +77,7 @@ class SetReadout(Readout):
 
 
 
-class SelectedVerticesReadout(Readout):
+class VCNReadout(Readout):
     def __init__(self, config):
         super().__init__(config)
         self.module_list = nn.ModuleList()
@@ -72,8 +94,10 @@ class SelectedVerticesReadout(Readout):
 def make_readout(readout_config):
     if readout_config.function == 'fully_connected':
         return FullyConnectedReadout(readout_config.config)
-    elif readout_config.function == 'selected_vertices':
-        return SelectedVerticesReadout(readout_config.config)
+    elif readout_config.function == 'dtnn':
+        return DTNNReadout(readout_config.config)
+    elif readout_config.function == 'vcn':
+        return VCNReadout(readout_config.config)
     elif readout_config.function == 'set':
         return SetReadout(readout_config.config)
     else:

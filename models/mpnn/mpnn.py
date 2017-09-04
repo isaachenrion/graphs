@@ -19,7 +19,6 @@ class BaseMPNN(nn.Module):
         self.readout = make_readout(config.readout)
 
     def forward(self, G):
-        #import ipdb; ipdb.set_trace()
         self.embed_data(G)
         for i in range(self.n_iters):
             self.message_passing(G)
@@ -35,12 +34,6 @@ class BaseMPNN(nn.Module):
 
         else:
             raise ValueError("Unsupported parallelism level!")
-
-    def _message_passing_serial(self, G):
-        pass
-
-    def _message_passing_edge_parallel(self, G):
-        pass
 
     def embed_data(self, G):
         pass
@@ -63,17 +56,8 @@ class VertexOnlyMPNN(BaseMPNN):
         super().__init__(config)
         self.embedding = make_embedding(config.embedding)
 
-    def message_passing(self, G):
-        if self.config.parallelism == 0:
-            return self._message_passing_serial(G)
-
-        elif self.config.parallelism == 1:
-            return self._message_passing_edge_parallel(G)
-
-        elif self.config.parallelism == 2:
-            return self._message_passing_all_parallel(G)
-
     def _message_passing_serial(self, G):
+
         for v in G.nodes():
             if len(G.neighbors(v)) > 0:
                 x_v = G.node[v]['state']
@@ -87,6 +71,7 @@ class VertexOnlyMPNN(BaseMPNN):
         return None
 
     def _message_passing_edge_parallel(self, G):
+
         for v in G.nodes():
             if len(G.neighbors(v)) > 0:
                 x_v = G.node[v]['state']
@@ -114,7 +99,8 @@ class GeneralMPNN(BaseMPNN):
             G.node[v]['state'] = self.embedding(G.node[v]['data'])
         return None
 
-    def message_passing(self, G):
+    def _message_passing_serial(self, G):
+
         for v in G.nodes():
             if len(G.neighbors(v)) > 0:
                 x_v = G.node[v]['state']
@@ -126,12 +112,28 @@ class GeneralMPNN(BaseMPNN):
                     m_vws.append(self.message(h_w, e_vw))
                 m_v = torch.mean(torch.stack(m_vws, 2), 2)
                 G.node[v]['hidden'] = self.vertex_update(m_v, h_v, x_v)
+
         return None
+
+    def _message_passing_edge_parallel(self, G):
+
+        for v in G.nodes():
+            if len(G.neighbors(v)) > 0:
+                x_v = G.node[v]['state']
+                h_v = G.node[v]['hidden']
+                m_vws = []
+                h_ws = torch.stack([G.node[w]['hidden'] for w in G.neighbors(v)], 1)
+                e_vws = torch.stack([G.edge[v][w]['data'] for w in G.neighbors(v)], 1)
+                m_vws = self.message(h_ws, e_vws)
+                m_v = torch.mean(m_vws, 1)
+                G.node[v]['hidden'] = self.vertex_update(m_v, h_v, x_v)
+
+        return None
+
 
 class EdgeOnlyMPNN(BaseMPNN):
     def __init__(self, config):
         super().__init__(config)
-
 
     def _message_passing_serial(self, G):
         for v in G.nodes():
@@ -163,16 +165,6 @@ class EdgeOnlyMPNN(BaseMPNN):
 class StructureOnlyMPNN(BaseMPNN):
     def __init__(self, config):
         super().__init__(config)
-
-    def message_passing(self, G):
-        if self.config.parallelism == 0:
-            return self._message_passing_serial(G)
-
-        elif self.config.parallelism == 1:
-            return self._message_passing_edge_parallel(G)
-
-        elif self.config.parallelism == 2:
-            return self._message_passing_all_parallel(G)
 
     def _message_passing_serial(self, G):
         for v in G.nodes():

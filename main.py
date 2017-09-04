@@ -36,7 +36,7 @@ parser.add_argument('--vertex_state_dim', type=int, default=0)
 
 # mpnn args
 parser.add_argument('--n_iters', type=int, default=1, help='Number of iterations of message passing')
-parser.add_argument('--parallelism', '-p', type=int, default=2, help='MPNN parallelism level (0, 1, 2)')
+parser.add_argument('--parallelism', '-p', type=int, default=1, help='MPNN parallelism level (0, 1)')
 
 parser.add_argument('--readout', default=None)
 parser.add_argument('--message', default=None)
@@ -52,9 +52,9 @@ if args.debug:
     args.problem = 1
     args.weight_decay = 0.
     args.hidden_dim = 7
-    args.n_iters = 2
+    #args.n_iters = 2
     args.message_dim = 11
-    args.batch_size = 13
+    args.batch_size = 23
 
 PROBLEMS = [
     'qm7_edge_representation',
@@ -71,11 +71,11 @@ PROBLEMS = [
 args.problem = PROBLEMS[args.problem]
 
 MODELS = [
-'mpnn', 'flat', 'vcn', 'mpnn_set'
+'mpnn', 'flat', 'vcn', 'mpnn_set', 'dtnn'
 ]
 args.model = MODELS[args.model]
 if args.model == 'vcn':
-    args.readout = 'selected_vertices'
+    args.readout = 'vcn'
     args.message = 'fully_connected'
     args.vertex_update = 'gru'
     args.embedding = 'constant'
@@ -87,6 +87,11 @@ elif args.model == 'mpnn':
 elif args.model == 'mpnn_set':
     args.readout = 'set'
     args.message = 'constant' # 'fully_connected'
+    args.vertex_update = 'gru'
+    args.embedding = 'constant'
+elif args.model == 'dtnn':
+    args.readout = 'dtnn'
+    args.message = 'dtnn' # 'fully_connected'
     args.vertex_update = 'gru'
     args.embedding = 'constant'
 elif args.model == 'flat':

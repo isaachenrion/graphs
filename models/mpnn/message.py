@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class Message(nn.Module):
     ''' Base class implementing neural message function for MPNNs. All subclasses
@@ -9,60 +10,52 @@ class Message(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.h_w_dim = config.hidden_dim
-        self.e_vw_dim = config.edge_dim
+        self.vertex_dim = config.hidden_dim
+        self.edge_dim = config.edge_dim
         self.message_dim = config.message_dim
 
-    def forward(self, h_ws, e_vws):
-        return self.filter_input(h_ws, e_vws)
+    def forward(self, *args):
+        pass
 
-    def filter_input(self, h_ws, e_vws):
-        if e_vws is None:
-            return h_ws
-        elif h_ws is None:
-            return e_vws
-        return torch.cat([h_ws, e_vws], -1)
+class DTNNMessage(Message):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.vertex_wx_plus_b = nn.Linear(self.vertex_dim, self.message_dim)
+        self.edge_wx_plus_b = nn.Linear(self.edge_dim, self.message_dim)
+        self.combo_wx = nn.Linear(self.message_dim, self.message_dim, bias=False)
+
+    def forward(self, vertices, edges):
+        message = F.tanh(self.combo_wx(self.vertex_wx_plus_b(vertices) * self.edge_wx_plus_b(edges)))
+        return message
 
 class FullyConnectedMessage(Message):
     def __init__(self, *args):
         super().__init__(*args)
         self.net = nn.Sequential(
-            nn.Linear(self.h_w_dim + self.e_vw_dim, self.message_dim),
+            nn.Linear(self.vertex_dim + self.edge_dim, self.message_dim),
             nn.ReLU()
             )
 
-    def forward(self, h_w, e_vw):
-        x = self.filter_input(h_w, e_vw)
-        return self.net(x)
+    def forward(self, vertices, edges):
+        return self.net(torch.cat([vertices, edges], -1))
 
 class EdgeMessage(Message):
     def __init__(self, *args):
         super().__init__(*args)
-        self.edge_net = nn.Linear(self.e_vw_dim, self.message_dim * self.h_w_dim)
+        self.edge_net = nn.Linear(self.edge_dim, self.message_dim * self.vertex_dim)
 
-    def forward(self, h_w, e_vw):
+    def forward(self, vertices, edges):
 
-        if h_w.dim() == 2:
+        if vertices.dim() == 2:
             message = torch.matmul(
-                self.edge_net(e_vw).view(e_vw.size()[0], self.message_dim, self.h_w_dim),
-                h_w.unsqueeze(-1)).squeeze(-1)
+                self.edge_net(edges).view(edges.size()[0], self.message_dim, self.vertex_dim),
+                vertices.unsqueeze(-1)).squeeze(-1)
 
-        elif h_w.dim() == 3:
+        elif vertices.dim() == 3:
             message = torch.matmul(
-                self.edge_net(e_vw).view(e_vw.size()[0], e_vw.size()[1], self.message_dim, self.h_w_dim),
-                h_w.unsqueeze(-1)).squeeze(-1)
+                self.edge_net(edges).view(edges.size()[0], edges.size()[1], self.message_dim, self.vertex_dim),
+                vertices.unsqueeze(-1)).squeeze(-1)
 
-        elif e_vw.dim() == 4:
-            h_w = h_w.unsqueeze(1).expand(
-                        h_w.size()[0],
-                        e_vw.size()[1],
-                        e_vw.size()[2],
-                        self.config.hidden_dim
-                        )
-            message = torch.matmul(
-                self.edge_net(e_vw).view(e_vw.size()[0], e_vw.size()[1], e_vw.size()[2], self.message_dim, self.h_w_dim),
-                h_w.unsqueeze(-1)).squeeze(-1)
-            message = torch.mean(message, 2)
         return message
 
 class Constant(Message):
@@ -75,25 +68,19 @@ class Constant(Message):
         else:
             return self._forward_with_edge(*args)
 
-    def _forward_without_edge(self, h_w):
-        if h_w.dim() == 2:
-            return h_w
-        elif h_w.dim() == 3:
-            return h_w
+    def _forward_without_edge(self, vertices):
+        return vertices
 
-    def _forward_with_edge(self, h_w, e_vw):
-        if e_vw.dim() == 3:
-            message = torch.cat([e_vw, h_w], -1)
-        elif e_vw.dim() == 4:
-            h_w = h_w.unsqueeze(2).expand(e_vw.size()[0], e_vw.size()[1], e_vw.size()[2], h_w.size()[-1])
-            message = torch.cat([e_vw, h_w], -1)
-            message = torch.mean(message, 2)
+    def _forward_with_edge(self, vertices, edges):
+        message = torch.cat([edges, vertices], -1)
         return message
 
 
 def make_message(message_config):
     if message_config.function == 'fully_connected':
         return FullyConnectedMessage(message_config.config)
+    elif message_config.function == 'dtnn':
+        return DTNNMessage(message_config.config)
     elif message_config.function == 'constant':
         return Constant(message_config.config)
     elif message_config.function == 'edge_message':
