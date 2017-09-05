@@ -19,12 +19,13 @@ class BaseMPNN(nn.Module):
         self.readout = make_readout(config.readout)
         self.original_mp_prob = config.mp_prob
 
-    def train():
-        self.mp_prob = self.original_mp_prob
+    def train(self, train_mode=True):
+        if train_mode:
+            self.mp_prob = self.original_mp_prob
+        else:
+            self.mp_prob = 1
+        return super().train(train_mode)
 
-    def eval():
-        self.mp_prob = 1
-        
     def forward(self, G):
         self.embed_data(G)
         for i in range(self.n_iters):
