@@ -17,8 +17,14 @@ class BaseMPNN(nn.Module):
         self.message = make_message(config.message)
         self.vertex_update = make_vertex_update(config.vertex_update)
         self.readout = make_readout(config.readout)
-        self.mp_prob = config.mp_prob
+        self.original_mp_prob = config.mp_prob
 
+    def train():
+        self.mp_prob = self.original_mp_prob
+
+    def eval():
+        self.mp_prob = 1
+        
     def forward(self, G):
         self.embed_data(G)
         for i in range(self.n_iters):
