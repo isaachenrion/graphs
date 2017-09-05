@@ -28,6 +28,7 @@ class DTNNMessage(Message):
         message = F.tanh(self.combo_wx(self.vertex_wx_plus_b(vertices) * self.edge_wx_plus_b(edges)))
         return message
 
+
 class FullyConnectedMessage(Message):
     def __init__(self, *args):
         super().__init__(*args)
@@ -39,7 +40,7 @@ class FullyConnectedMessage(Message):
     def forward(self, vertices, edges):
         return self.net(torch.cat([vertices, edges], -1))
 
-class EdgeMessage(Message):
+class EdgeMatrixMessage(Message):
     def __init__(self, *args):
         super().__init__(*args)
         self.edge_net = nn.Linear(self.edge_dim, self.message_dim * self.vertex_dim)
@@ -84,6 +85,6 @@ def make_message(message_config):
     elif message_config.function == 'constant':
         return Constant(message_config.config)
     elif message_config.function == 'edge_message':
-        return EdgeMessage(message_config.config)
+        return EdgeMatrixMessage(message_config.config)
     else:
         raise ValueError("Unsupported message function! ({})".format(message_config.function))

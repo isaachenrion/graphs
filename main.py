@@ -37,7 +37,7 @@ parser.add_argument('--vertex_state_dim', type=int, default=0)
 # mpnn args
 parser.add_argument('--n_iters', type=int, default=1, help='Number of iterations of message passing')
 parser.add_argument('--parallelism', '-p', type=int, default=1, help='MPNN parallelism level (0, 1)')
-
+parser.add_argument('--mp_prob', type=float, default=1, help='Probability to do message passing at a vertex')
 parser.add_argument('--readout', default=None)
 parser.add_argument('--message', default=None)
 parser.add_argument('--vertex_update', default=None)

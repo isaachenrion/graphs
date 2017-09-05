@@ -21,7 +21,8 @@ MPNNConfig = namedtuple(
             'readout',
             'embedding',
             'n_iters',
-            'parallelism'
+            'parallelism',
+            'mp_prob',
         ]
 )
 
@@ -96,6 +97,7 @@ def get_mpnn_config(args, dataset):
             )
         ),
         n_iters=args.n_iters,
-        parallelism=args.parallelism
+        parallelism=args.parallelism,
+        mp_prob=args.mp_prob
     )
     return config
