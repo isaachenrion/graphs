@@ -27,6 +27,7 @@ class BaseMPNN(nn.Module):
         return super().train(train_mode)
 
     def forward(self, G):
+        self.reset_hidden_states(G)
         self.embed_data(G)
         for i in range(self.n_iters):
             for v in G.nodes():
@@ -34,6 +35,7 @@ class BaseMPNN(nn.Module):
                     self.message_passing(G, v)
 
         out = self.readout(G)
+        self.clear_hidden_states()
         return out
 
     def message_passing(self, G, v):

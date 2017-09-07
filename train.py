@@ -137,7 +137,6 @@ def train_one_batch_serial(model, batch, loss_fn, optimizer, monitors):
 def train_one_batch_parallel(model, batch, loss_fn, optimizer, monitors):
 
     optimizer.zero_grad()
-    model.reset_hidden_states(batch)
 
     # forward model
     model_output = model(batch)
