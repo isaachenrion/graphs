@@ -35,7 +35,7 @@ class BaseMPNN(nn.Module):
                     self.message_passing(G, v)
 
         out = self.readout(G)
-        self.clear_hidden_states()
+        self.clear_hidden_states(G)
         return out
 
     def message_passing(self, G, v):
