@@ -62,6 +62,13 @@ class BaseMPNN(nn.Module):
 
         return None
 
+
+    def clear_hidden_states(self, G):
+        for u in G.nodes():
+            G.node[u]['hidden'] = None
+            G.node[u]['state'] = None
+        return None
+
 class VertexOnlyMPNN(BaseMPNN):
     def __init__(self, config):
         super().__init__(config)
