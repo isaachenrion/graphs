@@ -14,6 +14,7 @@ def load_from_path(data_path, args):
     if args.model == 'vcn':
         add_target_nodes(dataset)
 
+
     dataset = dataset.preprocess()
     return dataset
 

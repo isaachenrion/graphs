@@ -5,8 +5,7 @@ import copy
 import networkx as nx
 import numpy as np
 from collections import namedtuple
-from .graph_utils import add_edge_data, add_vertex_data, add_graph_data, add_graph_data_dict, add_vertex_data_dict
-
+from .graph_utils import *
 Target = namedtuple(
     'Target', [
         'name',
@@ -54,6 +53,7 @@ class GraphDataset(Dataset):
         ):
         super().__init__()
         self.graphs = graphs
+        self.original_graphs = graphs
         self.order = order
         self.problem_type = problem_type
         self.vertex_dim = vertex_dim
@@ -92,6 +92,13 @@ class GraphDataset(Dataset):
                 dtype = 'float' if self.problem_type == 'reg' else 'long'
                 wrap_graph_targets(G, self.graph_targets, dtype)
             return wrapped_dataset
+
+    def pad_graphs(self):
+        '''Pad all the graphs with zero edges - make them fully connected'''
+        for i, G in enumerate(self.original_graphs):
+            G_ = fully_connected_padding(G)
+            self.graphs[i] = G_
+
 
 class FixedOrderGraphDataset(GraphDataset):
     def __init__(self, flat_graph_state_dim=None, **kwargs):

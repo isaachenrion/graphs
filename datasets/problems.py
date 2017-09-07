@@ -7,13 +7,13 @@ from .path import DATA_DIR
 from .datasets import GraphDataset, FixedOrderGraphDataset, Target
 from .graph_utils import add_edge_data, add_graph_data, add_vertex_data, add_graph_data_dict
 
-def generate_data(prefix, problem, num_examples):
+def generate_data(prefix, args):
     if problem == 'arithmetic':
-        data = arithmetic(prefix, num_examples)
+        data = arithmetic(prefix, args.num_examples)
     elif problem == 'has_path':
-        data = has_path(prefix, num_examples)
+        data = has_path(prefix, args.num_examples)
     elif problem == 'is_connected':
-        data = is_connected(prefix, num_examples)
+        data = is_connected(prefix, args.num_examples)
     elif problem == 'qm7_edge_representation':
         data = qm7(prefix, 'edge')
     elif problem == 'qm7_edge_representation_small':
@@ -27,11 +27,11 @@ def generate_data(prefix, problem, num_examples):
     elif problem == 'qm7b_small':
         data = qm7b_small(prefix)
     elif problem == 'simple':
-        data = simple(prefix, num_examples)
+        data = simple(prefix, args.num_examples)
     else:
         raise ValueError("Problem was not recognised.")
 
-    with open(os.path.join(DATA_DIR,'{}-{}.pkl'.format(problem, prefix)), 'wb') as f:
+    with open(os.path.join(DATA_DIR,'{}-{}.pkl'.format(args.problem, prefix)), 'wb') as f:
         pickle.dump(data, f)
     return None
 
@@ -174,6 +174,10 @@ def is_connected(prefix='train', num_examples=1, debug=False):
     )
     return data
 
+def is_connected_padded(prefix='train', num_examples=1):
+    data = is_connected(prefix, num_examples)
+    data.pad_graphs()
+
 def qm7(prefix, representation='edge', N=-1):
     n_atoms = 23
     if representation == 'vertex':
@@ -219,6 +223,8 @@ def qm7(prefix, representation='edge', N=-1):
             add_graph_data(G, np.reshape(edge_data[idx], [-1]), key='flat_graph_state')
 
         add_graph_data(G, T[idx], key='E')
+        add_graph_data(G, vertex_dim, key='edge_dim')
+        add_graph_data(G, edge_dim, key='vertex_dim')
         graphs.append(G)
 
     processed_data = FixedOrderGraphDataset(
