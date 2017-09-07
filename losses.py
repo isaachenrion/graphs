@@ -71,7 +71,7 @@ class Accuracy(GraphLoss):
         def accuracy(y, y_target):
             _, hard_prediction = torch.max(y, 1)
             acc = (hard_prediction == y_target) * 100
-            return acc.float()
+            return acc.float().mean()
         super().__init__(loss_fn=accuracy, name='accuracy', **kwargs)
 
 class LossCollection(Loss):

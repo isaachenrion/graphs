@@ -8,26 +8,29 @@ from .datasets import GraphDataset, FixedOrderGraphDataset, Target
 from .graph_utils import add_edge_data, add_graph_data, add_vertex_data, add_graph_data_dict
 
 def generate_data(prefix, args):
-    if problem == 'arithmetic':
-        data = arithmetic(prefix, args.num_examples)
-    elif problem == 'has_path':
-        data = has_path(prefix, args.num_examples)
-    elif problem == 'is_connected':
-        data = is_connected(prefix, args.num_examples)
-    elif problem == 'qm7_edge_representation':
+    if prefix == 'train':
+        num_examples = args.n_train
+    else: num_examples = args.n_eval
+    if args.problem == 'arithmetic':
+        data = arithmetic(prefix, num_examples)
+    elif args.problem == 'has_path':
+        data = has_path(prefix, num_examples)
+    elif args.problem == 'is_connected':
+        data = is_connected(prefix, num_examples, args)
+    elif args.problem == 'qm7_edge_representation':
         data = qm7(prefix, 'edge')
-    elif problem == 'qm7_edge_representation_small':
+    elif args.problem == 'qm7_edge_representation_small':
         data = qm7_small(prefix, 'edge')
-    elif problem == 'qm7_vertex_representation':
+    elif args.problem == 'qm7_vertex_representation':
         data = qm7(prefix, 'vertex')
-    elif problem == 'qm7_vertex_representation_small':
+    elif args.problem == 'qm7_vertex_representation_small':
         data = qm7_small(prefix, 'vertex')
-    elif problem == 'qm7b':
+    elif args.problem == 'qm7b':
         data = qm7b(prefix)
-    elif problem == 'qm7b_small':
+    elif args.problem == 'qm7b_small':
         data = qm7b_small(prefix)
-    elif problem == 'simple':
-        data = simple(prefix, args.num_examples)
+    elif args.problem == 'simple':
+        data = simple(prefix, num_examples)
     else:
         raise ValueError("Problem was not recognised.")
 
@@ -135,41 +138,41 @@ def simple(prefix='train', num_examples=1):
     )
     return data
 
-def is_connected(prefix='train', num_examples=1, debug=False):
+def is_connected(prefix='train', num_examples=1, args=None):
 
     graph_targets = [
         Target('is_connected', 'graph', 2)
     ]
     graphs = []
-    vertex_dim = 0
-    edge_dim = 0
+    vertex_dim = 1
+    edge_dim = 1
     mean_connected = 0.
     for i in range(num_examples):
-        order = np.random.randint(5, 15)
+        order = args.order if args is not None else 10
+
         eps = 1e-1 * (4 * np.random.randint(0, 2))
         p = (1 + eps) * np.log(order) / order
-        graph= nx.fast_gnp_random_graph(order, p)
-        graph.graph['is_connected'] = np.ones([1]) if nx.is_connected(graph) else np.zeros([1])
+        G= nx.fast_gnp_random_graph(order, p)
+        G.graph['is_connected'] = np.ones([1]) if nx.is_connected(G) else np.zeros([1])
 
-        for node in graph.nodes():
-            graph.node[node]['data'] = np.ones([1,1])
-
-        for u in range(order):
-            for v in range(order):
-                if graph.has_edge(u,v):
-                    graph.edge[u][v]['data'] = np.ones([1,1])
-                #else:
-                #    graph.add_edge(u, v, data = np.zeros([1,1]))
-
-        mean_connected += graph.graph['is_connected']
-        graphs.append(graph)
+        fgs = np.zeros([order, order])
+        for u in G.nodes():
+            G.node[u]['data'] = np.ones([1])
+        for u, v in G.edges():
+            G.edge[u][v]['data'] = np.ones([1])
+            fgs[u][v] = 1
+        G.graph['flat_graph_state'] = np.reshape(fgs, [-1])
+        mean_connected += G.graph['is_connected']
+        graphs.append(G)
     mean_connected /= num_examples
     print(mean_connected)
-    data = GraphDataset(
+    data = FixedOrderGraphDataset(
+        order=order,
         graphs=graphs,
         problem_type="clf",
         vertex_dim=vertex_dim,
         edge_dim=edge_dim,
+        flat_graph_state_dim=G.graph['flat_graph_state'].shape[-1],
         graph_targets=graph_targets,
     )
     return data

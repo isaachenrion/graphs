@@ -175,7 +175,12 @@ class BatchedFixedOrderGraphDataset(BatchedGraphDataset):
                 add_edge_data(empty_batch_graph, np.zeros([self.order, self.order, batch_size, self.edge_dim]))
 
             if self.graph_targets is not None:
-                graph_data_dict = {target.name: np.zeros([batch_size, target.dim]) for target in self.graph_targets}
+                if self.problem_type == 'clf':
+                    graph_data_dict = {target.name: np.zeros([batch_size]) for target in self.graph_targets}
+                else:
+                    graph_data_dict = {target.name: np.zeros([batch_size, target.dim]) for target in self.graph_targets}
+
+
                 add_graph_data_dict(empty_batch_graph, graph_data_dict)
 
             add_graph_data(empty_batch_graph, np.zeros([batch_size, self.flat_graph_state_dim]), 'flat_graph_state')
