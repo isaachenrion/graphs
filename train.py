@@ -16,6 +16,7 @@ import numpy as np
 import time
 import datetime
 import itertools
+import gc
 import copy
 import os
 from models import *
@@ -42,7 +43,7 @@ def train(args):
         torch.cuda.device(args.gpu)
 
     # write the args to outfile
-    for k, v in vars(args).items(): _print('{} : {}\n'.format(k, v))
+    for k, v in sorted(vars(args).items()): _print('{} : {}\n'.format(k, v))
 
     # load data
     training_set, validation_set = load_data(args)
@@ -177,6 +178,7 @@ def train_one_epoch(model, dataset, loss_fn, optimizer, monitors, debug):
     epoch_stats = {name: stat / len(dataset) for name, stat in epoch_stats.items()}
     epoch_stats["time"] = time.time() - t0
 
+    gc.collect()
     return epoch_stats
 
 def evaluate_one_batch_serial(model, batch, monitors):

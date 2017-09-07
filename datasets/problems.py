@@ -207,8 +207,6 @@ def qm7(prefix, representation='edge', N=-1):
 
     P = data['P']
 
-    #import ipdb; ipdb.set_trace()
-
     graphs = []
     if prefix == 'train':
         good_indices = np.concatenate(P[1:], -1)[:N]

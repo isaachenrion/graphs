@@ -43,6 +43,5 @@ class Flat(nn.Module):
 
 
 
-
 def make_flat(config):
     return Flat(config)
