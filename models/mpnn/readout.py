@@ -82,7 +82,7 @@ class VCNReadout(Readout):
         super().__init__(config)
         self.module_list = nn.ModuleList()
         for target in self.graph_targets:
-            self.module_list.append(nn.Linear(self.hidden_dim, self.readout_dim))
+            self.module_list.append(nn.Linear(self.hidden_dim, target.dim))
 
     def forward(self, G):
         h_dict = {v: G.node[v]['hidden'] for v in G.nodes()}
