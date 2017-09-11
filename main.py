@@ -11,7 +11,7 @@ parser.add_argument('--n_train', type=int, default=100, help='Number of training
 parser.add_argument('--n_eval', type=int, default=100, help='Number of test examples to generate.')
 parser.add_argument('--problem', '-t', type=int, default=0, help='task to train on')
 parser.add_argument('--gen', action='store_true', help='generate the data')
-parser.add_argument('--order', type=int, default=10, help='order of graphs to generate')
+parser.add_argument('--max_order', type=int, default=10, help='order of graphs to generate')
 
 # miscellaneous args
 parser.add_argument('--gpu', type=int, default=0, help='Device to use (GPU)')

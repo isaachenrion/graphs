@@ -128,7 +128,7 @@ def train_one_batch_serial(model, batch, loss_fn, optimizer, monitors):
     batch_loss = batch_loss / len(batch)
     batch_loss.backward()
 
-    torch.nn.utils.clip_grad_norm(model.parameters(), .1)
+    #torch.nn.utils.clip_grad_norm(model.parameters(), .1)
     optimizer.step()
 
     batch_stats = {name: batch_stats[name] / len(batch) for name in monitors.names}
@@ -152,7 +152,7 @@ def train_one_batch_parallel(model, batch, loss_fn, optimizer, monitors):
             print("Output variance: {}".format(v.var(0).data.numpy()[0]))
             print("Target variance: {}".format(batch.graph[k].var(0).data.numpy()[0]))
 
-    torch.nn.utils.clip_grad_norm(model.parameters(), .1)
+    #torch.nn.utils.clip_grad_norm(model.parameters(), .1)
     optimizer.step()
 
     # get stats
